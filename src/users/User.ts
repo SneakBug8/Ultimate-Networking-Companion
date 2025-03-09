@@ -3,9 +3,7 @@ import { MIS_DT } from "../util/MIS_DT";
 
 export class User
 {
-  public Id: undefined | number;
-  public username: string=  "";
-  public passwordHash: string | undefined
+  public Id : number = 0;;
   public chatId: number | undefined;
 
   public MIS_DT = MIS_DT.GetExact();
@@ -35,6 +33,7 @@ export class User
   public static async Insert(contact: User)
   {
     contact.UPDATED_DT = MIS_DT.GetExact();
+    (contact as any).Id = undefined;
     await UsersRepository().insert(contact);
   }
 

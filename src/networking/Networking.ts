@@ -1,7 +1,4 @@
 import { MessageWrapper } from "../MessageWrapper";
-import * as fs from "fs";
-import * as path from "path";
-
 import { Config } from "../config";
 import { Server, setWaitingForValue, setWaitingForValuePure } from "..";
 import TelegramBot = require("node-telegram-bot-api");
@@ -12,13 +9,15 @@ import { MIS_DT } from "../util/MIS_DT";
 import { Scheduler } from "../util/Scheduler";
 import { stat } from "fs-extra";
 import { NetworkingHistory } from "./NetworkingHistory";
+import { TgAuthService } from "../users/TgAuthService";
+import { User } from "../users/User";
 
 class NetworkingClass
 {
   private readonly howmanyperday = 1;
   private readonly whattimeofaday = 12;
 
-  private getKeyboard(): TelegramBot.KeyboardButton[][]
+  public getKeyboard(): TelegramBot.KeyboardButton[][]
   {
     return [
       [{ text: "/networking done" }, { text: "/networking init" }, { text: "/networking list" }],
@@ -44,20 +43,23 @@ class NetworkingClass
   {
     Scheduler.Schedule(this.whattimeofaday, async () =>
     {
-      const now = new Date();
-      await this.NetworkingSend();
+      const users = await User.GetUsers();
+      for (const user of users) {
+        const now = new Date();
+        await this.NetworkingSend(user.Id);
 
-      if (now.getDay() - 1 === 4) {
-        await this.WeeklyReview();
+        if (now.getDay() - 1 === 4) {
+          await this.WeeklyReview(user.Id);
+        }
       }
     });
   }
 
-  private async GetRecentContacts()
+  private async GetRecentContacts(userId: number)
   {
     let res = "";
 
-    const applicableContacts = await NetworkingCommunication.GetRecentCommsToComplete();
+    const applicableContacts = await NetworkingCommunication.GetRecentCommsToComplete(userId);
 
     if (applicableContacts.length) {
       res += `---\n`;
@@ -75,7 +77,7 @@ class NetworkingClass
     return res;
   }
 
-  private async NetworkingSend()
+  private async NetworkingSend(userId: number)
   {
     const now = new Date(Date.now());
     // this.data.lastSend = now.getDay();
@@ -85,7 +87,7 @@ class NetworkingClass
 
     const previds = new Array<number>();
     let i = 0;
-    const contacts = await NetworkingContact.GetContacts();
+    const contacts = await NetworkingContact.GetContacts(userId);
 
     while (i < this.howmanyperday) {
       const active = contacts.filter((x :  NetworkingContact) => x.active);
@@ -95,22 +97,22 @@ class NetworkingClass
 
       previds.push(randomind);
 
-      res += await this.formatName(active[randomind].name) + "\n";
-      this.CreateCommunicationForContact(active[randomind].name);
+      res += await this.formatContactName(userId, active[randomind].name) + "\n";
+      this.CreateCommunicationForContact(userId, active[randomind].name);
 
       i++;
     }
 
-    res += await this.GetRecentContacts();
+    res += await this.GetRecentContacts(userId);
 
     Server.SendMessage(res);
   }
 
-  private async WeeklyReview()
+  private async WeeklyReview(userId: number)
   {
     let res = `Networking for weekends:\n`;
 
-    const pick = await NetworkingContact.GetActive();
+    const pick = await NetworkingContact.GetActive(userId);
 
     const previds = new Array<number>();
 
@@ -123,16 +125,16 @@ class NetworkingClass
 
       previds.push(randomind);
 
-      res += await this.formatName(pick[randomind].name) + "\n";
+      res += await this.formatContactName(userId, pick[randomind].name) + "\n";
       i++;
     }
 
     Server.SendMessage(res);
   }
 
-  public async CreateCommunicationForContact(name: string)
+  public async CreateCommunicationForContact(userId: number, name: string)
   {
-    const contact = await NetworkingContact.GetContact(name);
+    const contact = await NetworkingContact.GetContact(userId, name);
     if (!contact) {
       return "No such contact";
     }
@@ -140,19 +142,19 @@ class NetworkingClass
     const comm = new NetworkingCommunication(contact.name);
     const rc = await NetworkingCommunication.Insert(comm);
 
-    await NetworkingHistory.writeChange(contact.name, 0, rc.Id);
+    await NetworkingHistory.writeChange(userId, contact.name, 0, rc.Id);
 
     return rc;
   }
 
-  public async RaiseDoneForStat(name: string)
+  public async RaiseDoneForStat(userId: number, name: string)
   {
-    const contact = await NetworkingContact.GetContact(name);
+    const contact = await NetworkingContact.GetContact(userId, name);
     if (!contact) {
       return "No such contact";
     }
 
-    const comms = await NetworkingCommunication.GetWithContactUnfinished(contact.name);
+    const comms = await NetworkingCommunication.GetWithContactUnfinished(userId, contact.name);
     let updatedcommunication : NetworkingCommunication | null = null;
 
     if (comms.length) {
@@ -160,7 +162,7 @@ class NetworkingClass
         if (currcomm.Done) {
           continue;
         }
-        updatedcommunication = await this.SetCommunicationDone(currcomm);
+        updatedcommunication = await this.SetCommunicationDone(userId, currcomm);
 
         break;
       }
@@ -172,22 +174,22 @@ class NetworkingClass
     return {contact, updatedcommunication};
   }
 
-  public async SetCommunicationDone(comm: NetworkingCommunication)
+  public async SetCommunicationDone(userId: number, comm: NetworkingCommunication)
   {
     comm.Done = 1;
     comm.DONE_DT = MIS_DT.GetExact();
     await NetworkingCommunication.Update(comm);
-    await NetworkingHistory.writeChange(comm.Contact, 2, comm?.Id || 0);
+    await NetworkingHistory.writeChange(userId, comm.Contact, 2, comm?.Id || 0);
     return comm;
   }
 
-  public async RaiseInitForStat(name: string)
+  public async RaiseInitForStat(userId: number, name: string)
   {
-    const contact = await NetworkingContact.GetContact(name);
+    const contact = await NetworkingContact.GetContact(userId, name);
     if (!contact) {
       return "No such contact";
     }
-    const comms = await NetworkingCommunication.GetWithContactUninitiated(contact.name);
+    const comms = await NetworkingCommunication.GetWithContactUninitiated(userId, contact.name);
 
     let updatedcommunication : NetworkingCommunication | null = null;
 
@@ -212,7 +214,7 @@ class NetworkingClass
     comm.Initiated = 1;
     comm.INITIATED_DT = MIS_DT.GetExact();
     await NetworkingCommunication.Update(comm);
-    await NetworkingHistory.writeChange(comm.Contact, 1, comm?.Id || 0);
+    await NetworkingHistory.writeChange(comm.userId, comm.Contact, 1, comm?.Id || 0);
 
     return comm;
   }
@@ -223,7 +225,9 @@ class NetworkingClass
       return this.reply(msg, "Aborted");
     }
 
-    const lastchange = await NetworkingHistory.getLast();
+    const asr = await TgAuthService.EnsureUser(msg.message.chat.id);
+    const user = asr.user;
+    const lastchange = await NetworkingHistory.getLast(user.Id);
 
     if (!lastchange) { return "No changes history"; }
 
@@ -237,12 +241,12 @@ class NetworkingClass
     }
 
     // Change old communication
-    const contact = await NetworkingContact.GetContact(lastchange.Contact);
+    const contact = await NetworkingContact.GetContact(user.Id, lastchange.Contact);
     if (!contact) {
       return "No such contact";
     }
     if (lastchange.Type === 0) {
-      const comms = await NetworkingCommunication.GetWithContact(contact.name);
+      const comms = await NetworkingCommunication.GetWithContact(user.Id, contact.name);
       for (const currcomm of comms) {
         if (currcomm.Id) {
           await NetworkingCommunication.Delete(currcomm.Id);
@@ -254,7 +258,7 @@ class NetworkingClass
       return `Undone sending ${stat.name}`;
     }
     else if (lastchange.Type === 1) {
-      const comms = await NetworkingCommunication.GetWithContact(contact.name);
+      const comms = await NetworkingCommunication.GetWithContact(user.Id, contact.name);
       for (const currcomm of comms) {
         if (currcomm.Initiated) {
           currcomm.Initiated = 0;
@@ -267,7 +271,7 @@ class NetworkingClass
       return `Undone initiating ${stat.name}`;
     }
     else if (lastchange.Type === 2) {
-      const comms = await NetworkingCommunication.GetWithContact(contact.name);
+      const comms = await NetworkingCommunication.GetWithContact(user.Id, contact.name);
       for (const currcomm of comms) {
         if (currcomm.Done) {
           currcomm.Done = 0;
@@ -303,7 +307,7 @@ class NetworkingClass
 
     const lastchange = lastchanges[0];
 
-    const contact = await NetworkingContact.GetContact(comm.Contact);
+    const contact = await NetworkingContact.GetContact(comm.userId, comm.Contact);
     if (!contact) {
       return "No such contact";
     }
@@ -331,13 +335,13 @@ class NetworkingClass
     return "Unexpected error";
   }
 
-  private async formatName(name: string)
+  private async formatContactName(userId: number, contact: string)
   {
-    let res = `${name}`;
+    let res = `${contact}`;
 
-    const offline = await NetworkingCommunication.GetOfflineForContact(name) as any;
-    const c = await NetworkingContact.GetContact(name);
-    const stat = await NetworkingCommunication.GetContactStat(name);
+    const offline = await NetworkingCommunication.GetOfflineForContact(userId, contact) as any;
+    const c = await NetworkingContact.GetContact(userId, contact);
+    const stat = await NetworkingCommunication.GetContactStat(userId, contact);
 
     /*if (contact.active) {
       res += ` (d${contact.done} / i${contact.initiated} / t${contact.totalsent}, offline${offline})`;
@@ -359,9 +363,9 @@ class NetworkingClass
     return res;
   }
 
-  private async ShortStatistics()
+  private async ShortStatistics(userId: number)
   {
-    const stats = await NetworkingCommunication.GetStats();
+    const stats = await NetworkingCommunication.GetStats(userId);
     const done = stats && stats.Done || 0;
     const init = stats && stats.Initiated || 0;
     const sent = stats && stats.Sent || 0;
@@ -371,25 +375,25 @@ class NetworkingClass
       + `(d${Math.round(done * 100 / sent)}% / i${Math.round(init * 100 / sent)}%)`;
   }
 
-  private async FullStatistics()
+  private async FullStatistics(userId: number)
   {
-    const stats = await NetworkingCommunication.GetStats();
+    const stats = await NetworkingCommunication.GetStats(userId);
     const done = stats && stats.Done || 0;
     const init = stats && stats.Initiated || 0;
     const sent = stats && stats.Sent || 0;
-    const days = await NetworkingCommunication.GetTotalDays();
+    const days = await NetworkingCommunication.GetTotalDays(userId);
 
-    const offline = await NetworkingCommunication.GetOfflineStats() as any;
+    const offline = await NetworkingCommunication.GetOfflineStats(userId) as any;
 
-    return (await this.ShortStatistics()) +
+    return (await this.ShortStatistics(userId)) +
     `\nOffline contacts: ${offline && offline.c || 0}` +
       `\nAverage contacts per day: ${shortNum(init / days)}` +
       `\nAverage answers per day: ${shortNum(done / days)}`;
   }
 
-  public async AddContact(name: string)
+  public async AddContact(user : User, name: string)
   {
-    const existing = await NetworkingContact.GetContact(name);
+    const existing = await NetworkingContact.GetContact(user.Id, name);
 
     if (existing) {
       existing.active = true;
@@ -399,6 +403,7 @@ class NetworkingClass
     }
 
     const contact = new NetworkingContact(name);
+    contact.userId = user.Id;
     await NetworkingContact.Insert(contact);
 
     return `Added ${name} to your networking contacts.`;
@@ -415,54 +420,58 @@ class NetworkingClass
 
   public async Process(message: MessageWrapper)
   {
+    const chatID = message.message.chat.id;
+    const asr = await TgAuthService.EnsureUser(chatID);
+    const user = asr.user;
+
     if (message.checkRegex(/\/networking add/)) {
-      setWaitingForValue(`Please, write name who to add.`,
+      setWaitingForValue(message, `Please, write name who to add.`,
         async (msg) =>
         {
           const name = msg.message.text;
 
           if (!name) { return; }
 
-          this.reply(message, await this.AddContact(name));
+          this.reply(message, await this.AddContact(user, name));
         });
       return;
     }
     if (message.checkRegex(/\/networking init$/)) {
-      const lastcontact = await NetworkingCommunication.GetLastContact();
+      const lastcontact = await NetworkingCommunication.GetLastContact(user.Id);
       if (!lastcontact) {
         return this.reply(message, `No last user to mark done.`);
       }
 
-      const res = await this.RaiseInitForStat(lastcontact.Contact);
+      const res = await this.RaiseInitForStat(user.Id, lastcontact.Contact);
       if (typeof res === "string") {
         return this.reply(message, res);
       }
 
       this.reply(message, `Marked interaction with ${res.contact.name} dated ${this.CommunicationDatedFormat(res.updatedcommunication)} as initiated.\n` +
-            await this.ShortStatistics());
+            await this.ShortStatistics(user.Id));
 
       return;
     }
     if (message.checkRegex(/\/networking done$/)) {
-      const lastcontact = await NetworkingCommunication.GetLastContact();
+      const lastcontact = await NetworkingCommunication.GetLastContact(user.Id);
       if (!lastcontact) {
         return this.reply(message, `No last user to mark done.`);
       }
 
-      const res = await this.RaiseDoneForStat(lastcontact.Contact);
+      const res = await this.RaiseDoneForStat(user.Id, lastcontact.Contact);
       if (typeof res === "string") {
         return this.reply(message, res);
       }
 
       this.reply(message, `Marked interaction with ${res.contact.name} dated ${this.CommunicationDatedFormat(res.updatedcommunication)} as done.\n` +
-            await this.ShortStatistics());
+            await this.ShortStatistics(user.Id));
 
       return;
     }
     if (message.checkRegex(/\/networking list/)) {
       let res = "";
 
-      const contacts = await NetworkingContact.GetContacts();
+      const contacts = await NetworkingContact.GetContacts(user.Id);
       const statsMap = new Map<NetworkingContact, {
         Sent?: number | undefined;
         Initiated?: number | undefined;
@@ -470,7 +479,7 @@ class NetworkingClass
       }>();
 
       for (const x of contacts) {
-        const xstats = await NetworkingCommunication.GetContactStat(x.name);
+        const xstats = await NetworkingCommunication.GetContactStat(user.Id, x.name);
         statsMap.set(x, xstats);
       }
 
@@ -500,10 +509,10 @@ class NetworkingClass
       });
 
       for (const contact of sorted) {
-        res += await this.formatName(contact.name);
+        res += await this.formatContactName(user.Id, contact.name);
       }
 
-      const active = await NetworkingContact.GetActive();
+      const active = await NetworkingContact.GetActive(user.Id);
 
       res += `---\n`;
       res += `Average cycle ${active.length / this.howmanyperday} days.`;
@@ -512,55 +521,55 @@ class NetworkingClass
       return;
     }
     if (message.checkRegex(/^\/networking done \(...\)/)) {
-      setWaitingForValue(`Please, write name who to mark as done.`,
+      setWaitingForValue(message, `Please, write name who to mark as done.`,
         async (msg) =>
         {
           const name = msg.message.text;
 
           if (!name) { return; }
 
-          const res = await this.RaiseDoneForStat(name);
+          const res = await this.RaiseDoneForStat(user.Id, name);
           if (typeof res === "string") {
             return this.reply(message, res);
           }
 
           this.reply(message, `Marked interaction with ${res.contact.name} dated ${this.CommunicationDatedFormat(res.updatedcommunication)} as done.\n` +
-            await this.ShortStatistics());
+            await this.ShortStatistics(user.Id));
         });
       return;
     }
     if (message.checkRegex(/^\/networking init \(...\)/)) {
-      setWaitingForValue(`Please, write name who to mark as initiated.`,
+      setWaitingForValue(message, `Please, write name who to mark as initiated.`,
         async (msg) =>
         {
           const name = msg.message.text;
 
           if (!name) { return; }
 
-          const res = await this.RaiseInitForStat(name);
+          const res = await this.RaiseInitForStat(user.Id, name);
           if (typeof res === "string") {
             return this.reply(message, res);
           }
 
           this.reply(message, `Marked interaction with ${res.contact.name} dated ${this.CommunicationDatedFormat(res.updatedcommunication)} as initiated.\n` +
-            await this.ShortStatistics());
+            await this.ShortStatistics(user.Id));
         });
       return;
     }
     if (message.checkRegex(/^\/networking send \(...\)/)) {
-      setWaitingForValue(`Please, write name who to mark as sent.`,
+      setWaitingForValue(message, `Please, write name who to mark as sent.`,
         async (msg) =>
         {
           const name = msg.message.text;
 
           if (!name) { return; }
 
-          const res = await this.CreateCommunicationForContact(name);
+          const res = await this.CreateCommunicationForContact(user.Id, name);
           if (typeof res === "string") {
             return this.reply(message, res);
           }
           this.reply(message, `Created non-regular interaction with ${res.Contact}.\n` +
-            await this.ShortStatistics());
+            await this.ShortStatistics(user.Id));
         });
       return;
     }
@@ -580,7 +589,7 @@ class NetworkingClass
       return;
     }
     if (message.checkRegex(/^\/networking remove/)) {
-      setWaitingForValue(`Please, write name who to remove.`,
+      setWaitingForValue(message, `Please, write name who to remove.`,
         async (msg) =>
         {
           const name = msg.message.text;
@@ -589,7 +598,7 @@ class NetworkingClass
 
           let newstatus: boolean;
 
-          const c = await NetworkingContact.GetContact(name);
+          const c = await NetworkingContact.GetContact(user.Id, name);
           if (c) {
             newstatus = !c.active;
             c.active = newstatus;
@@ -615,11 +624,11 @@ class NetworkingClass
       return setWaitingForValuePure(this.undo.bind(this));
     }
     if (message.checkRegex(/^\/networking test contacts stats/)) {
-      const contacts = await NetworkingContact.GetContacts();
+      const contacts = await NetworkingContact.GetContacts(user.Id);
 
       let res = "";
       for (const contact of contacts) {
-        const stat = await NetworkingCommunication.GetContactStat(contact.name);
+        const stat = await NetworkingCommunication.GetContactStat(user.Id, contact.name);
         res += `\n${contact.name}\n`;
 
         res += JSON.stringify(stat);
@@ -630,24 +639,24 @@ class NetworkingClass
       return;
     }
     if (message.checkRegex(/^\/networking unfinished/)) {
-      this.reply(message, await this.GetRecentContacts());
+      this.reply(message, await this.GetRecentContacts(user.Id));
 
       return;
     }
     if (message.checkRegex(/^\/networking force/)) {
-      this.NetworkingSend();
+      this.NetworkingSend(user.Id);
 
       return;
     }
     if (message.checkRegex(/^\/networking stats/)) {
-      this.reply(message, await this.FullStatistics());
+      this.reply(message, await this.FullStatistics(user.Id));
 
       return;
     }
     if (message.checkRegex(/^\/networking/)) {
       this.reply(message, `Networking module.\n` +
         `Networking dashboard: ${await Config.url()}networking\n`
-        + await this.ShortStatistics());
+        + await this.ShortStatistics(user.Id));
       return;
     }
     return false;

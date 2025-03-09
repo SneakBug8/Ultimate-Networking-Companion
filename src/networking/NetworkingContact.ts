@@ -12,6 +12,8 @@ export class NetworkingContact
   public MIS_DT = MIS_DT.GetExact();
   public UPDATED_DT = MIS_DT.GetExact();
 
+  public userId: number = 0;
+
   public constructor(name: string)
   {
     this.name = name;
@@ -22,9 +24,10 @@ export class NetworkingContact
     return await NetworkingContactsRepository().where("Id", id).first();
   }
 
-  public static async GetContact(name: string)
+  public static async GetContact(userId: number, name: string)
   {
-    const entries = await NetworkingContactsRepository().where("name", "LIKE", `%${name}%`).select();
+    const entries = await NetworkingContactsRepository().where("name", "LIKE", `%${name}%`)
+    .andWhere("userId", userId).select();
 
     if (entries.length) {
       return entries[0];
@@ -33,16 +36,17 @@ export class NetworkingContact
     return null;
   }
 
-  public static async GetContacts()
+  public static async GetContacts(userId: number)
   {
-    const entries = await NetworkingContactsRepository().select();
+    const entries = await NetworkingContactsRepository().where("userId", userId).select();
 
     return entries;
   }
 
-  public static async GetActive()
+  public static async GetActive(userId: number)
   {
-    const entries = await NetworkingContactsRepository().where("active", 1).select();
+    const entries = await NetworkingContactsRepository().where("active", 1)
+    .andWhere("userId", userId).select();
 
     return entries;
   }

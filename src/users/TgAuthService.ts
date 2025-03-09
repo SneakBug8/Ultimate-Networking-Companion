@@ -21,8 +21,12 @@ class TgAuthServiceClass {
             user.chatId = chatId;
             await User.Insert(user);
             const nuser = await User.GetByChat(chatId);
-            user.Id = nuser?.Id;
-            return { code: TgAuthServiceResponses.NewUser, user };
+            if (nuser) {
+                user.Id = nuser.Id;
+                return { code: TgAuthServiceResponses.NewUser, user };
+            }
+            
+            throw new Error("Couldn't create new user");
         }
     }
 

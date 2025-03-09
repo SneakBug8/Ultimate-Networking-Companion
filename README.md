@@ -1,65 +1,24 @@
-# Personal telegram bot
+# Self-hosted Ultimate Networking Companion
 
-Small telegram bot to help me make some operations during a day, such as:
-- Creating notes
-- Publishing them to personal wiki
-- Maintaining networking via contacts list and notifications
-- Run multiple timers
-- Calculate everything possible with JS
-- Monitor what you are doing and for what time
+A web application and a Telegram bot to help you maintain your networking via contacts list and notifications.
 
-All major config is included in `.env` and `src/config.ts`. FTP upload always uses basedir. You can make separate user with correct base folder for uploading to the right folder.
+Imagine that you are the head of a department in a large IT company. You attend conferences twice a month, regularly conduct interviews and poach experienced specialists from other companies. Your Linkedin profile has more than 1000 connections, and you can’t keep up with your Facebook feed.
 
-## Installation
+As a teamlead nowadays and a journalist in the past, I know this pain firsthand. What if you had a single solution for tracking all activity with your work contacts? That’s what my project is about. Now you won’t forget where you met Bill Gates and which of your friends to invite to a new position.
 
-Serve it as a regular Node.JS app: `npm start`.
+  - Do you want to keep in touch with a contact? Create an active contact and it will appear in the pool of offers for communication.
+  - Do you just want to remember a person? Create a contact and deactivate it.
+  - Do you want to remember the details of a friend? Write everything down in the contact description.
+  - Mark your initiated, successful and offline communications. Remember where you met and what you did in the communication descriptions.
 
-Don't forget to rename `.env example` to `.env` and fill required variables. You can ignore ftp-related things if you won't use Publishing mechanisms.
+[Ask for support in Discord server](https://discord.gg/SthVvfQZj5). [Subscribe to my Telegram channel](https://t.me/sb8blog)
 
-## Usage
+## User Stories
 
-Default behaviour for the bot upon receiving message is to save it a note (optionally, create a file with current date and time). Other commands are:
-
-  - `/id` - show chat id of current chat. Use that to configure allowed chatid's in `.env` file.
-
-  - `/ping` - check whether bot is online
-  - `/path` - show current filepath
-  - `/reset` - reset current filepath
-  - `/space` - insert big separator (horizontal line)
-  - `/files` - list list of files by folders
-  - `/file [name]` - set current filename (open or create a file)
-  - `/log` or `/read` - read current file
-  - `/logs` - read current file splitted by separators.
-  - `/get [name]` - read another file
-  - `/logs [name]` - read another file splitted by separators.
-  - `/delete` - delete current file
-  - `/delete [name]` - delete another file
-
-  File slots allow use to remember last used files with short numbers and switch between them with one short command. For example, you can use slot #1 for todays notes - reseting it once a day and slot #2 for English vocabulary, which you will use for a long time.
-
-  - `/slot [num]` - use file slot with number
-  - `/slots` - log all recorded slots
-  - `/slot reset` - reset file in current slot
-  - `/slot reset [num]` - reset numbered slot
-  - `/slots reset` - reset all slots
-
-  - `/publish` - send file to remote FTP server
-  - `/load` - download file from remote FTP server
-
-  - `/timer start` - start timer
-  - `/timer stop` - stop latest timer
-  - `/timer clear` - stop all timers
-
-  - `/eval [code]` - eval arbitrary JS code. Can be used as a simple calculator
-
-  - `/networking add [name]` - add contact to your networking list
-  - `/networking remove [name]` - disable contact from futher suggestions for networking
-  - `/networking done [name]` - mark interaction with [name] as done for the statistics. If used without name - uses last person suggested for interaction.
-  - `/networking list` - list all your contacts. List is sorted by total numbers this person has been suggested
-  - `/networking force` - run networking script right now
-
-  - `/learning start []` - start learning/doing smth
-  - `/learning stop` or `/learning end` - stop learning/doing
-  - `/learning now` - what is recorded now
-  - `/learning stats` - statistics over what've you done in hours
-  - `/learning list` - all notifications for you to do smth based on day&hour. Can be edited only directly in `leaning.json` file
+- User can create contacts
+- User can modify contacts. When user updates contact's name all links to communications are persisted.
+- User can deactivate contacts. The system will no longer suggest it to the user.
+- System suggests a contact to communicate with daily. That's a Networking Communication. It's default status is Sent.
+- User can move the NetworkingCommunication to Initiated status and then to Done status when the recipient has responded.
+- When User changes the NetworkingCommunication status with a bot - bot chooses the most recent communication to update.
+- On Friday system suggests an extended list of contacts for weekends without creating NetworkingCommunication to not spoil the stats.

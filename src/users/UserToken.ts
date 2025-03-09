@@ -4,7 +4,7 @@ import { MIS_DT } from "../util/MIS_DT";
 export class UserToken
 {
   public Id: undefined | number;
-  public UserId: number = 0;
+  public userId: number = 0;
   public token: string | undefined;
   public LIVEUNTIL = MIS_DT.GetExact() + MIS_DT.OneDay() * 7;
   public MIS_DT = MIS_DT.GetExact();

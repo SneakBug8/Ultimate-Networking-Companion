@@ -3,59 +3,64 @@ import { MIS_DT } from "../util/MIS_DT";
 
 export class NetworkingCommunication
 {
-  public static async GetLastContact() {
-    return NetworkingCommunicationsRepository().select().orderBy("CREATED_DT", "desc").first();
+  public static async GetLastContact(userId: number) {
+    return NetworkingCommunicationsRepository().select()
+    .where("userId", userId).orderBy("CREATED_DT", "desc").first();
   }
   public static async GetById(id: number)
   {
     return NetworkingCommunicationsRepository().where("Id", id).first();
   }
 
-  public static async GetWithContact(contact: string)
+  public static async GetWithContact(userId: number, contact: string)
   {
-    return NetworkingCommunicationsRepository().where("Contact", contact).select().orderBy("CREATED_DT", "desc");
+    return NetworkingCommunicationsRepository().where("Contact", contact)
+    .andWhere("userId", userId).select().orderBy("CREATED_DT", "desc");
   }
 
-  public static async GetContactsStats()
+  public static async GetContactsStats(userId: number)
   {
-    return NetworkingCommunicationsRepository().groupBy("Contact").sum({
+    return NetworkingCommunicationsRepository().where("userId", userId).groupBy("Contact").sum({
       Sent: "Sent", Initiated: "Initiated", Done: "Done"
     }).select("Contact");
   }
 
-  public static async GetContactOfflineStats()
+  public static async GetContactOfflineStats(userId: number)
   {
-    return NetworkingCommunicationsRepository().where("type", "Offline").groupBy("Contact")
+    return NetworkingCommunicationsRepository().where("type", "Offline")
+    .andWhere("userId", userId).groupBy("Contact")
       .select("Contact").count("Id as c");
   }
 
-  public static async GetOfflineStats()
+  public static async GetOfflineStats(userId: number)
   {
-    return NetworkingCommunicationsRepository().where("type", "Offline").count("Id as c").first();
+    return NetworkingCommunicationsRepository().where("type", "Offline").andWhere("userId", userId).count("Id as c").first();
   }
 
-  public static async GetOfflineForContact(name: string)
+  public static async GetOfflineForContact(userId: number, name: string)
   {
-    return await NetworkingCommunicationsRepository().where("type", "Offline").andWhere("Contact", name).count("Id as c");
+    return await NetworkingCommunicationsRepository().where("type", "Offline").andWhere("Contact", name)
+    .andWhere("userId", userId).count("Id as c");
   }
 
-  public static async GetStats()
+  public static async GetStats(userId: number)
   {
-    return (await NetworkingCommunicationsRepository().sum({
+    return (await NetworkingCommunicationsRepository().where("userId", userId).sum({
       Sent: "Sent", Initiated: "Initiated", Done: "Done"
     }))[0];
   }
 
-  public static async GetContactStat(name: string)
+  public static async GetContactStat(userId: number, name: string)
   {
-    return (await NetworkingCommunicationsRepository().where("Contact", name).groupBy("Contact").sum({
+    return (await NetworkingCommunicationsRepository().where("Contact", name)
+    .andWhere("userId", userId).groupBy("Contact").sum({
       Sent: "Sent", Initiated: "Initiated", Done: "Done"
     }))[0];
   }
 
-  public static async GetTotalDays()
+  public static async GetTotalDays(userId: number)
   {
-    const d = (await NetworkingCommunicationsRepository().min({
+    const d = (await NetworkingCommunicationsRepository().where("userId", userId).min({
       CREATED_DT: "CREATED_DT"
     }))[0];
 
@@ -66,51 +71,58 @@ export class NetworkingCommunication
     return (MIS_DT.GetDay() - (d.CREATED_DT || MIS_DT.GetDay())) / MIS_DT.OneDay();
   }
 
-  public static async GetWithContactUnfinished(contact: string)
+  public static async GetWithContactUnfinished(userId: number, contact: string)
   {
-    return NetworkingCommunicationsRepository().where("Contact", contact).andWhere("Done", 0).select()
+    return NetworkingCommunicationsRepository()
+    .where("userId", userId).andWhere("Contact", contact).andWhere("Done", 0).select()
       .orderBy("CREATED_DT", "desc");
   }
 
-  public static async GetWithContactUninitiated(contact: string)
+  public static async GetWithContactUninitiated(userId: number, contact: string)
   {
-    return NetworkingCommunicationsRepository().where("Contact", contact).andWhere("Initiated", 0)
+    return NetworkingCommunicationsRepository()
+    .where("userId", userId).andWhere("Contact", contact).andWhere("Initiated", 0)
       .select().orderBy("CREATED_DT", "desc");
   }
 
-  public static async GetUnfinished()
+  public static async GetUnfinished(userId: number)
   {
-    return NetworkingCommunicationsRepository().where("Done", 0).andWhere(function()
+    return NetworkingCommunicationsRepository()
+    .where("userId", userId).andWhere("Done", 0).andWhere(function()
     {
       this.where("Sent", 1).orWhere("Initiated", 1);
     }).select();
   }
 
-  public static async GetWebList()
+  public static async GetWebList(userId: number)
   {
     return NetworkingCommunicationsRepository()
-      .where("CREATED_DT", ">=", MIS_DT.GetExact() - MIS_DT.OneDay() * 30).select().orderBy("CREATED_DT", "desc");
+    .where("userId", userId)
+      .andWhere("CREATED_DT", ">=", MIS_DT.GetExact() - MIS_DT.OneDay() * 30).select().orderBy("CREATED_DT", "desc");
   }
 
-  public static async GetRecentCommsToComplete()
+  public static async GetRecentCommsToComplete(userId: number)
   {
-    return NetworkingCommunicationsRepository().where("Done", 0)
+    return NetworkingCommunicationsRepository()
+    .where("userId", userId).andWhere("Done", 0)
       .andWhere("CREATED_DT", ">=", MIS_DT.GetExact() - MIS_DT.OneWeek()).andWhere(function()
       {
         this.where("Sent", 1).orWhere("Initiated", 1);
       }).select();
   }
 
-  public static async GetLastMonth()
+  public static async GetLastMonth(userId: number)
   {
     return NetworkingCommunicationsRepository()
-      .where("CREATED_DT", ">=", MIS_DT.GetDay() - MIS_DT.OneDay() * 30).select();
+      .where("userId", userId)
+      .andWhere("CREATED_DT", ">=", MIS_DT.GetDay() - MIS_DT.OneDay() * 30).select();
   }
 
-  public static async GetBetweenDates(from: number, to: number)
+  public static async GetBetweenDates(userId: number, from: number, to: number)
   {
     return NetworkingCommunicationsRepository()
-      .where("CREATED_DT", ">=", from).andWhere("CREATED_DT", "<", to).select();
+    .where("userId", userId)
+      .andWhere("CREATED_DT", ">=", from).andWhere("CREATED_DT", "<", to).select();
   }
 
   public static async Update(comm: NetworkingCommunication)
@@ -149,6 +161,8 @@ export class NetworkingCommunication
   public title: string = "";
   public description: string = "";
   public type: string = "";
+
+  public userId: number = 0;
 
   public constructor(contact: string)
   {

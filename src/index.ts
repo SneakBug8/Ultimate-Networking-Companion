@@ -9,17 +9,16 @@ import { NetworkingService } from "./networking/Networking";
 import { Config } from "./config";
 import { InitBackup, ProcessBackup } from "./backup/BackupService";
 import { Sleep } from "./util/Sleep";
-import { NetworkingWeb as NetworkingWebService } from "./networking/NetworkingWebService";
+// import { NetworkingWeb as NetworkingWebService } from "./networking/NetworkingWebService";
 import { Scheduler } from "./util/Scheduler";
 import { ErrorLogger } from "./util/ErrorLogger";
-import * as EventEmitter from "events";
 import { SyncEvent } from "./util/SyncEvent";
 
 let waitingCallback: ((message: MessageWrapper) => any) | null = null;
 
-export function setWaitingForValue(message: string, callback: (message: MessageWrapper) => any)
+export function setWaitingForValue(chat: MessageWrapper, prompt: string, callback: (message: MessageWrapper) => any)
 {
-    Server.SendMessage(message, [[{ text: "/exit" }]]);
+    chat.reply(prompt, [[{ text: "/exit" }]]);
     waitingCallback = callback;
 }
 
@@ -30,9 +29,11 @@ export function setWaitingForValuePure(callback: (message: MessageWrapper) => an
 
 export function defaultKeyboard(): TelegramBot.KeyboardButton[][]
 {
-    return [
-        [{ text: "/networking" },],
-    ];
+    //return [
+    //    [{ text: "/networking" },],
+    //];
+
+    return NetworkingService.getKeyboard();
 }
 
 class App
@@ -59,7 +60,7 @@ class App
         InitBackup();
 
         // Web modules
-        NetworkingWebService.Init();
+        // NetworkingWebService.Init();
 
         this.bot.on("text", async (msg) =>
         {
@@ -98,7 +99,9 @@ class App
         try {
             const message = new MessageWrapper(msg);
             const time = message.getPrintableTime();
-            console.log(`[${time}] ${msg.text}`);
+
+            const usr = await TgAuthService.EnsureUser(msg.chat.id);
+            console.log(`[${time}] {${usr.user.Id}} ${msg.text}`);
 
             if (!msg.text) {
                 return;
@@ -128,6 +131,15 @@ class App
 
             if (message.checkRegex(/\/exit/)) {
                 return message.reply("Main menu.");
+            }
+
+            if (message.checkRegex(/\/start/)) {
+                return message.reply(`
+Welcome to Ultimate Networking Assistant.
+  - Do you want to keep in touch with a contact? Create an active contact and it will appear in the pool of offers for communication.
+  - Do you just want to remember a person? Create a contact and deactivate it.
+  - Do you want to remember the details of a friend? Write everything down in the contact description.
+  - Mark your initiated, successful and offline communications. Remember where you met and what you did in the communication descriptions.`);
             }
 
             const listeners = [

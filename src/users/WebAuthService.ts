@@ -8,7 +8,7 @@ class WebAuthServiceClass {
     {
         const tokenentry = await UserToken.GetByToken(token);
         if (tokenentry) {
-            const userentry = await User.GetById(tokenentry.UserId);
+            const userentry = await User.GetById(tokenentry.userId);
 
             if (userentry) {
                 return userentry;
