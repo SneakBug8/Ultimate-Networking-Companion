@@ -1,0 +1,71 @@
+<%- include('../partials/head') %>
+
+<%- include('../partials/networkingbreadcrump') %>
+
+<h2>Networking Data Table</h2>
+
+
+<table id="evergreen">
+    <thead>
+        <td>Id</td>
+        <td>Contact</td>
+        <td>Done</td>
+        <td>Initiated</td>
+        <td>INITIATED_DT</td>
+        <td>DONE_DT</td>
+        <td>CREATED_DT</td>
+        <td>UPDATE_DT</td>
+    </thead>
+    <tbody id="tbody">
+
+    </tbody>
+</table>
+<script defer>
+    axios.get('/api/networking/entries')
+        .then(fillTable)
+        .catch(function (error) {
+            // handle error
+            console.log(error);
+        });
+
+    function formatDate(d) {
+        return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+    }
+
+    function fillTable(response) {
+        for (const entry of response.data) {
+            /*
+            <td>Id</td>
+        <td>Contact</td>
+        <td>Done</td>
+        <td>Initiated</td>
+        <td>INITIATED_DT</td>
+        <td>DONE_DT</td>
+        <td>CREATED_DT</td>
+        <td>UPDATE_DT</td> */
+                        $("#tbody").append(
+                            `<tr>` +
+                            `<td>${entry.Id}</td>` +
+                            `<td>${entry.Contact}</td>` +
+                            `<td>${entry.Done}</td>` +
+                            `<td>${entry.Initiated}</td>` +
+                            `<td>${entry.INITIATED_DT && formatDate(new Date(entry.INITIATED_DT))}</td>` +
+                            `<td>${entry.DONE_DT && formatDate(new Date(entry.DONE_DT))}</td>` +
+                            `<td>${entry.CREATED_DT && formatDate(new Date(entry.CREATED_DT))}</td>` +
+                            `<td>${entry.UPDATE_DT && formatDate(new Date(entry.UPDATE_DT))}</td>` +
+                            `</tr>`
+                        );
+        }
+
+        $(document).ready(function () {
+            $('#evergreen').DataTable({
+                "order": [
+                            [0, 'desc'],
+                        ]
+            });
+        });
+    }
+</script>
+
+
+<%- include('../partials/bottom') %>

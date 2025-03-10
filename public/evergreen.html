@@ -1,0 +1,71 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Evergreen dashboard</title>
+    <meta name="description" content="A simple HTML5 Template for new projects.">
+    <meta name="author" content="SitePoint">
+
+    <link rel="stylesheet" href="css/styles.css?v=1.0">
+    <link rel="stylesheet" href="//cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"
+        integrity="sha256-u7e5khyithlIdTpu22PHhENmPcRdFiHRjhAuHcs05RI=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="//cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+</head>
+
+<body>
+    <a href="/">Home</a>
+    <table id="evergreen">
+        <thead>
+            <td>Title</td>
+            <td>Language</td>
+            <td>Create date</td>
+            <td>Update date</td>
+            <td>Updates</td>
+            <td>Views</td>
+            <td>Rate</td>
+        </thead>
+        <tbody id="tbody">
+
+        </tbody>
+    </table>
+    <script>
+        axios.get('/api/evergreen')
+            .then(fillTable)
+            .catch(function (error) {
+                // handle error
+                console.log(error);
+            });
+            function formatDate(d) {
+                return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+            }
+        function fillTable(response) {
+            for (const entry of response.data) {
+                $("#tbody").append(
+                    `<tr>` +
+                    `<td><a href="${entry.link}">${entry.title}</a></td>` +
+                    `<td>${entry.language}</td>` +
+                    `<td>${formatDate(new Date(entry.MIS_DT))}</td>` +
+                    `<td>${formatDate(new Date(entry.UPDATE_DT))}</td>` +
+                    `<td>${entry.Updates}</td>` +
+                    `<td>${entry.views}</td>` +
+                    `<td>${Math.round(entry.rate * 10000000000)}</td>` +
+                    `</tr>`
+                )
+            }
+
+            $(document).ready(function () {
+                $('#evergreen').DataTable();
+            });
+        }
+    </script>
+</body>
+
+</html>

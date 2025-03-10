@@ -1,0 +1,234 @@
+<%- include('../partials/head') %>
+
+<script src="https://unpkg.com/vue-select@latest"></script>
+<link rel="stylesheet" href="https://unpkg.com/vue-select@latest/dist/vue-select.css">
+
+<%- include('../partials/networkingbreadcrump') %>
+
+<h1>Networking communications</h1>
+<p>Here you can find all the communications you were offered in the last month.</p>
+<style>
+    .stroke {
+        text-decoration: line-through;
+    }
+
+    .small {
+        font-size: smaller;
+    }
+
+    .bold {
+        font-weight: bolder;
+    }
+</style>
+
+<!--
+<span class="bold">Sent</span>
+<span>Initiated</span>
+<span class="stroke">Done</span>-->
+<div id="app">
+    <table id="communications">
+        <thead>
+            <td>Sent</td>
+            <td>Contact</td>
+            <td>Type</td>
+            <td>Title</td>
+            <td>Status</td>
+            <td>Actions</td>
+        </thead>
+        <tbody id="tbody">
+            <tr v-for="comm in communications" :key="comm.Id">
+                <td>{{comm.CREATED_DT | formatDate}}</td>
+                <td><a href="javascript:void(0);" @click="read(comm)">{{comm.Contact}}</span></td>
+                <td><a href="javascript:void(0);" @click="read(comm)">{{comm.type}}</span></td>
+                <td><a href="javascript:void(0);" @click="read(comm)">{{comm.title}}</span></td>
+                <td>{{commStatus(comm)}}</td>
+                <td>
+                    <div class="btn-group" role="group" aria-label="Basic mixed styles example">
+                        <button class="btn btn-success" v-if="!comm.Initiated && !comm.Done" @click="raise(comm)">&#8593; Init</button>
+                        <button class="btn btn-success" v-if="comm.Initiated && !comm.Done"
+                            @click="raise(comm)">&#8593; Done</button>
+                        <button class="btn btn-danger" v-if="comm.Done || comm.Initiated"
+                            @click="drop(comm)">&#8595; Undo</button>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div>
+        <h3>Add communication</h3>
+        <div v-if="error" class="alert alert-danger">{{error}}</div>
+        <div v-if="success" class="alert alert-success">{{success}}</div>
+        <div class="mb-3">
+            <label for="name" class="form-label">Contact</label>
+            <v-select label="name" :options="contacts" v-model="selectedcontact"></v-select>
+        </div>
+        <button class="btn btn-success" v-on:click="publishEntry">Add</button>
+    </div>
+
+    <div class="bg" v-if="currententry"></div>
+    <div class="modal fade show" style="display: block;" v-if="currententry" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Contact with {{currententry.Contact}} at
+                        {{currententry.CREATED_DT | formatDate}}</h5>
+                    <button type="button" class="btn-close" @click="close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group">
+                            <label for="title">Title</label>
+                            <input v-model="currententry.title" class="form-control" id="title"
+                                placeholder="Short title">
+                        </div>
+                        <div class="form-group">
+                            <label for="typeselector">Type</label>
+                            <v-select :options="types" v-model="currententry.type"></v-select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="description">Description</label>
+                            <textarea v-model="currententry.description" class="form-control" id="description"
+                                placeholder="What were you doing together?" rows="10"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @click="close">Close</button>
+                    <button type="button" class="btn btn-primary" @click="update">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script defer>
+    // :class="{stroke: comm.Done, bold: !comm.Initiated, link: true}"
+    Vue.component("v-select", VueSelect.VueSelect);
+
+    var loaded = 0;
+
+    var app = new Vue({
+        el: '#app',
+        data: {
+            communications: [],
+            error: "",
+            success: "",
+            currententry: undefined,
+            types: ["Offline", "Call", "Chat"],
+            contacts: [],
+            selectedcontact: undefined
+        },
+        filters: {
+            formatDate: function (v) {
+                var d = new Date(Number.parseInt(v, 10));
+                return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+            },
+        },
+        methods: {
+            loadEntries: function () {
+                axios.get('/api/networking/communications/list')
+                    .then(this.fillTable)
+                    .catch(function (error) {
+                        this.error = error;
+                    });
+
+                axios.get('/api/networking/contacts/list')
+                    .then((d) => {
+                        this.contacts = d.data.contacts;
+                    })
+                    .catch(function (error) {
+                        this.error = error;
+                    });
+            },
+            commStatus: function (c) {
+                if (c.Done) {
+                    return "Done";
+                } else if (c.Initiated) {
+                    return "Initiated";
+                } else {
+                    return "Sent";
+                }
+            },
+            fillTable: function (d) {
+                console.log(d);
+
+                this.communications = d.data.communications;
+
+
+                if (!loaded) {
+                    loaded = 1;
+                    $(document).ready(function () {
+                        var myTable = $('#communications').DataTable({
+                            "order": [
+                                [0, 'desc'],
+                            ]
+                        });
+                    });
+                }
+            },
+            raise: function (c) {
+
+                const data = {
+                    id: c.Id,
+                };
+
+                axios.post('/api/networking/communications/raise', data).then((x) => {
+                    this.success = x.data["message"];
+                    this.error = x.data["error"];
+                }).then(this.loadEntries);
+            },
+            drop: function (c) {
+
+                const data = {
+                    id: c.Id,
+                };
+
+                axios.post('/api/networking/communications/drop', data).then((x) => {
+                    this.success = x.data["message"];
+                    this.error = x.data["error"];
+                }).then(this.loadEntries);
+            },
+            read: function (entry) {
+                this.currententry = Object.assign({}, entry);
+            },
+            close: function () {
+                this.currententry = undefined;
+            },
+            update: function () {
+                try {
+                    const r = axios.post(`/api/networking/communications/update`, {
+                            communication: this.currententry
+                        }).then((x) => {
+                            this.success = x.data["message"];
+                            this.error = x.data["error"];
+                        }).then(this.loadEntries)
+                        .then(this.close);
+                } catch (e) {
+                    this.error = "Something went wrong";
+                }
+            },
+            publishEntry: async function (e) {
+                if (!this.selectedcontact) {
+                    this.error = "Empty contact";
+                    this.success = "";
+                    return;
+                }
+
+                const data = {
+                    name: this.selectedcontact.name,
+                };
+
+                const x = await axios.post('/api/networking/communications/add', data);
+                this.success = x.data["message"];
+                this.error = x.data["error"];
+
+                this.loadEntries();
+            },
+        }
+    });
+
+    app.loadEntries();
+</script>
+
+<%- include('../partials/bottom') %>

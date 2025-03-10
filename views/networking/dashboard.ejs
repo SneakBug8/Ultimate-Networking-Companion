@@ -1,0 +1,74 @@
+<%- include('../partials/head') %>
+
+<div id="app" class="clearfix">
+    <div class="card b1" v-if="today">
+        <p>Your today's contact is {{today.Contact}}.
+        <br><a href="/networking/communications">View all your communications.</a></p>
+    </div>
+    <div class="card b1" v-if="yesterday && !today">
+        <p>There is no new contact for today. Yesterday you should've contacted {{yesterday.Contact}}.
+        <br><a href="/networking/communications">View communications.</a></p>
+    </div>
+    <div class="card b1" v-if="!yesterday && !today">
+        <p>There is no new communication for today.
+        <br><a href="/networking/communications">View communications.</a></p>
+    </div>
+
+    <div class="card b2">
+        <p>You have {{contactscount}} active contacts.
+        <br><a href="/networking/contacts">View contacts.</a></p>
+    </div>
+
+    <div class="card b3">
+        <p>In the last month you have done {{donesum}} communications, initiated {{initiatedsum}} and were sent
+            {{createdsum}}.
+            <br>View <a href="/networking/chart">stats</a>, <a href="/networking/cumulative">cumulative stats</a> or <a
+                href="/networking/monthly">stats by month</a>.
+        </p>
+    </div>
+</div>
+<script defer>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            today: undefined,
+            yesterday: undefined,
+            contactscount: 0,
+            commsinamonth: 0,
+            createdsum: 0,
+            initiatedsum: 0,
+            donesum: 0
+        },
+        filters: {
+            formatDate: function (v) {
+                var d = new Date(Number.parseInt(v, 10));
+                return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+            },
+        },
+        methods: {
+            loadEntries: function () {
+                axios.get('/api/networking/communications/card')
+                    .then(this.fillTable)
+                    .catch(function (error) {
+                        // handle error
+                        console.log(error);
+                    });
+            },
+            fillTable: function (d) {
+                console.log(d);
+
+                this.yesterday = d.data.yesterday;
+                this.today = d.data.today;
+                this.contactscount = d.data.contactscount;
+
+                this.createdsum = d.data.createdsum;
+                this.initiatedsum = d.data.initiatedsum;
+                this.donesum = d.data.donesum;
+            },
+        }
+    });
+
+    app.loadEntries();
+</script>
+
+<%- include('../partials/bottom') %>

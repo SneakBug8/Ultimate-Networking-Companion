@@ -1,0 +1,30 @@
+<%- include('../partials/head') %>
+
+
+<h2>Networking Chart</h2>
+<canvas id="myChart" width="400" height="200"></canvas>
+<script>
+    axios.get('/api/networking/chart')
+        .then(drawChart)
+        .catch(function (error) {
+            // handle error
+            console.log(error);
+        });
+
+    function drawChart(response) {
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const myChart = new Chart(ctx, {
+            type: 'line',
+            data: response.data,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+<%- include('../partials/bottom') %>

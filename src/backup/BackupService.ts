@@ -12,7 +12,7 @@ import { IntervalsExecution } from "../util/IntervalsExecution";
 import { Scheduler } from "../util/Scheduler";
 import { Client } from "basic-ftp"
 
-const backuppath = path.resolve(Config.dataPath(), "../backup.zip");
+const backuppath = path.resolve(Config.dataPath(), "../NetworkingAssistantbackup.zip");
 
 let data = new BackupData();
 

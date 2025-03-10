@@ -37,7 +37,7 @@ class WebApiClass {
         return next();
       }
       if (req.cookies && req.cookies.token) {
-        const tryuser = await WebAuthService.TryAuthToken(req.query.token as string);
+        const tryuser = await WebAuthService.TryAuthToken(req.cookies.token as string);
         if (!tryuser) {
           return res.render("login", {
             err: "You are not authenticated"

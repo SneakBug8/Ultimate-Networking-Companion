@@ -57,6 +57,7 @@ export class NetworkingWebClass
 
   private async OnUpdateContact(req: express.Request, res: express.Response)
   {
+    const user = await WebHelper.WebAuthWrapper(req);
     const contact = req.body.contact as NetworkingContact;
 
     if (!contact || !contact.Id) {
@@ -72,7 +73,7 @@ export class NetworkingWebClass
     }
 
     if (contact.name != existingcontact.name) {
-      const comms = await NetworkingCommunication.GetWithContact(existingcontact.name);
+      const comms = await NetworkingCommunication.GetWithContact(user.Id, existingcontact.name);
 
       for (const comm of comms) {
         comm.Contact = contact.name;
@@ -88,6 +89,7 @@ export class NetworkingWebClass
   private async OnDisableContact(req: express.Request, res: express.Response)
   {
     const name = req.body.name;
+    const user = await WebHelper.WebAuthWrapper(req);
 
     console.log(req.body);
 
@@ -96,7 +98,7 @@ export class NetworkingWebClass
       return;
     }
 
-    const c = await NetworkingContact.GetContact(name);
+    const c = await NetworkingContact.GetContact(user.Id, name);
 
     if (!c) {
       WebHelper.Error(res, "No such contact");
@@ -112,14 +114,16 @@ export class NetworkingWebClass
 
   public async OnGetContacts(req: express.Request, res: express.Response)
   {
-    const contacts = await NetworkingContact.GetContacts();
-    const stats = await NetworkingCommunication.GetContactsStats();
-    const offline = await NetworkingCommunication.GetContactOfflineStats();
+    const user = await WebHelper.WebAuthWrapper(req);
+    const contacts = await NetworkingContact.GetContacts(user.Id);
+    const stats = await NetworkingCommunication.GetContactsStats(user.Id);
+    const offline = await NetworkingCommunication.GetContactOfflineStats(user.Id);
     res.json({ contacts, stats, offline });
   }
 
   private async onAddCommunication(req: express.Request, res: express.Response)
   {
+    const user = await WebHelper.WebAuthWrapper(req);
     const name = req.body.name;
 
     if (!name) {
@@ -127,7 +131,7 @@ export class NetworkingWebClass
       return;
     }
 
-    const r = await NetworkingService.CreateCommunicationForContact(name);
+    const r = await NetworkingService.CreateCommunicationForContact(user.Id, name);
 
     if (typeof r === "string") {
       WebHelper.Error(res, "Unknown error");
@@ -139,6 +143,7 @@ export class NetworkingWebClass
 
   private async onUpdateCommunication(req: express.Request, res: express.Response)
   {
+    const user = await WebHelper.WebAuthWrapper(req);
     const comm = req.body.communication as NetworkingCommunication;
 
     if (!comm || !comm.Id) {
@@ -147,7 +152,7 @@ export class NetworkingWebClass
 
     const c = await NetworkingCommunication.GetById(comm.Id);
 
-    if (!c) {
+    if (!c || c.userId != user.Id) {
       WebHelper.Error(res, "No such communication"); return;
     }
 
@@ -162,6 +167,7 @@ export class NetworkingWebClass
 
   private async onRaiseCommunication(req: express.Request, res: express.Response)
   {
+    const user = await WebHelper.WebAuthWrapper(req);
     const id = req.body.id;
 
     if (!id) {
@@ -170,7 +176,7 @@ export class NetworkingWebClass
 
     const c = await NetworkingCommunication.GetById(id);
 
-    if (!c) {
+    if (!c || c.userId != user.Id) {
       WebHelper.Error(res, "No such communication"); return;
     }
 
@@ -212,13 +218,17 @@ export class NetworkingWebClass
 
   public async onGetNetworkingCommunications(req: express.Request, res: express.Response)
   {
-    const communications = await NetworkingCommunication.GetWebList();
+    const user = await WebHelper.WebAuthWrapper(req);
+
+    const communications = await NetworkingCommunication.GetWebList(user.Id);
     res.json({ communications });
   }
 
   public async onGetNetworkingCard(req: express.Request, res: express.Response)
   {
-    const communications = await NetworkingCommunication.GetWebList();
+    const user = await WebHelper.WebAuthWrapper(req);
+
+    const communications = await NetworkingCommunication.GetWebList(user.Id);
 
     const data = {} as any;
 
@@ -233,15 +243,14 @@ export class NetworkingWebClass
       data.yesterday = communications[0];
     }
 
-    const contacts = await NetworkingContact.GetActive();
+    const contacts = await NetworkingContact.GetActive(user.Id);
 
     data.contactscount = contacts.length;
 
     const firstDay = new Date(MIS_DT.GetExact() - MIS_DT.OneDay() * 30);
     const lastDay = new Date(MIS_DT.GetExact());
 
-    const entries = await NetworkingCommunication.GetBetweenDates(firstDay.getTime(),
-      lastDay.getTime());
+    const entries = await NetworkingCommunication.GetBetweenDates(user.Id, firstDay.getTime(), lastDay.getTime());
 
     data.createdsum = entries.reduce((p, c) => p + c.Sent, 0);
     data.initiatedsum = entries.reduce((p, c) => p + c.Initiated, 0);
@@ -252,14 +261,18 @@ export class NetworkingWebClass
 
   public async OnNetworkingData(req: express.Request, res: express.Response)
   {
-    const entries = await NetworkingCommunication.GetLastMonth();
+    const user = await WebHelper.WebAuthWrapper(req);
+
+    const entries = await NetworkingCommunication.GetLastMonth(user.Id);
 
     res.json(entries);
   }
 
   public async OnNetworkingChart(req: express.Request, res: express.Response)
   {
-    const entries = await NetworkingCommunication.GetLastMonth();
+    const user = await WebHelper.WebAuthWrapper(req);
+
+    const entries = await NetworkingCommunication.GetLastMonth(user.Id);
 
     const crarr = new Array<number>();
     const inarr = new Array<number>();
@@ -304,8 +317,10 @@ export class NetworkingWebClass
 
   public async OnNetworkingChartCumulative(req: express.Request, res: express.Response)
   {
-    const entries = await NetworkingCommunication.GetLastMonth();
-    const preventries = await NetworkingCommunication.GetBetweenDates(
+    const user = await WebHelper.WebAuthWrapper(req);
+
+    const entries = await NetworkingCommunication.GetLastMonth(user.Id);
+    const preventries = await NetworkingCommunication.GetBetweenDates(user.Id, 
       MIS_DT.GetDay() - MIS_DT.OneDay() * 60,
       MIS_DT.GetDay() - MIS_DT.OneDay() * 30
     );
@@ -400,6 +415,8 @@ export class NetworkingWebClass
 
   public async OnNetworkingMonthly(req: express.Request, res: express.Response)
   {
+    const user = await WebHelper.WebAuthWrapper(req);
+
     const date = new Date(MIS_DT.GetDay());
 
     const crarr = new Array<number>();
@@ -419,7 +436,7 @@ export class NetworkingWebClass
       console.log(`First day - ${MIS_DT.FormatDate(firstDay.getTime())} + ${firstDay.getTime()}`);
       console.log(`Last day - ${MIS_DT.FormatDate(lastDay.getTime())} + ${lastDay.getTime()}`);
 
-      const entries = await NetworkingCommunication.GetBetweenDates(firstDay.getTime(),
+      const entries = await NetworkingCommunication.GetBetweenDates(user.Id, firstDay.getTime(),
         lastDay.getTime());
 
       const crsum = entries.reduce((p, c) => p + c.Sent, 0);

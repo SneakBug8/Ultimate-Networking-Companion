@@ -1,0 +1,188 @@
+<%- include('../partials/head') %>
+
+<%- include('../partials/networkingbreadcrump') %>
+
+<h1>Networking contacts</h1>
+<p>Here you can manage all your contacts and see their stats. Disable a contact and it won't be offered you again.</p>
+<style>
+    .stroke {
+        text-decoration: line-through;
+    }
+
+    .numbercol {
+        text-align: right;
+    }
+</style>
+<div id="app">
+    <table id="contacts">
+        <thead>
+            <td>Name</td>
+            <td>Done</td>
+            <td>Initiated</td>
+            <td>Sent</td>
+            <td>Offline</td>
+            <td>Actions</td>
+        </thead>
+        <tbody id="tbody">
+            <tr v-for="contact in contacts" :key="contact.Id">
+                <td><span :class="{stroke: !contact.active}">
+                        <a href="javascript:void(0);" @click="read(contact)">{{contact.name}}</a>
+                       <!-- <quick-edit v-model="contact.name" @input="nameChange(contact, $event)"></quick-edit>
+                       -->
+                    </span></td>
+                <td class="numbercol">{{getStat(contact.name)?.Done || 0}}</td>
+                <td class="numbercol">{{getStat(contact.name)?.Initiated || 0}}</td>
+                <td class="numbercol">{{getStat(contact.name)?.Sent || 0}}</td>
+                <td class="numbercol">{{getOffline(contact.name)?.c || 0}} </td>
+                <td>
+                    <button class="btn btn-danger" v-if="contact.active" @click="disable(contact)">Disable</button>
+                    <button class="btn btn-success" v-if="!contact.active" @click="disable(contact)">Enable</button>
+
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <div>
+        <h3>Add contact</h3>
+        <div v-if="error" class="alert alert-danger">{{error}}</div>
+        <div v-if="success" class="alert alert-success">{{success}}</div>
+        <div class="mb-3">
+            <label for="name" class="form-label">Name</label>
+            <input v-model="name" class="form-control" id="name" placeholder="Name">
+        </div>
+        <button class="btn btn-success" v-on:click="publishEntry">Add</button>
+    </div>
+
+    <div class="bg" v-if="currententry"></div>
+    <div class="modal fade show" style="display: block;" v-if="currententry">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <input v-model="currententry.name" class="form-control" id="name" placeholder="Name">
+                    <button type="button" class="btn-close" @click="close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <textarea v-model="currententry.description" class="form-control" id="description" placeholder="Description"
+                            rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @click="close">Close</button>
+                    <button type="button" class="btn btn-primary" @click="update">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script defer>
+    // Vue.component('quick-edit', QuickEdit.default);
+
+    var app = new Vue({
+        el: '#app',
+        data: {
+            name: "",
+            error: "",
+            success: "",
+            contacts: [],
+            stats: [],
+            offline: [],
+            currententry: undefined
+        },
+        methods: {
+            getEnabled: function (c) {
+                return (c.active) ? "Enabled" : "Disabled";
+            },
+            getStat: function (name) {
+                return this.stats.find((x) => x.Contact === name);
+            },
+            getOffline: function (name) {
+                return this.offline.find((x) => x.Contact === name);
+            },
+            publishEntry: async function (e) {
+                if (!this.name) {
+                    this.error = "Empty name";
+                    this.success = "";
+                    return;
+                }
+
+                const data = {
+                    name: this.name,
+                };
+
+                const x = await axios.post('/api/networking/contacts/add', data);
+                this.success = x.data["message"];
+                this.error = x.data["error"];
+
+                this.loadEntries();
+            },
+            loadEntries: function () {
+                axios.get('/api/networking/contacts/list')
+                    .then(this.fillTable)
+                    .catch(function (error) {
+                        // handle error
+                        console.log(error);
+                    });
+            },
+            fillTable: function (d) {
+                console.log(d);
+
+                this.contacts = d.data.contacts;
+                this.stats = d.data.stats;
+                this.offline = d.data.offline;
+
+                $(document).ready(function () {
+                    $('#contacts').DataTable();
+                });
+            },
+            disable: function (c) {
+
+                const data = {
+                    name: c.name,
+                };
+
+                axios.post('/api/networking/contacts/disable', data).then((x) => {
+                    this.success = x.data["message"];
+                    this.error = x.data["error"];
+                }).then(this.loadEntries);
+            },
+            nameChange: function (c, name) {
+                console.log(c);
+                console.log(name);
+
+                c.name = name;
+
+                axios.post('/api/networking/contacts/update', {
+                    contact: c
+                }).then((x) => {
+                    this.success = x.data["message"];
+                    this.error = x.data["error"];
+                }).then(this.loadEntries);
+            },
+            read: function (entry) {
+                this.currententry = JSON.parse(JSON.stringify(entry));
+            },
+            close: function () {
+                this.currententry = undefined;
+            },
+            update: function () {
+                try {
+                    const r = axios.post(`/api/networking/contacts/update`, {
+                           contact: this.currententry
+                        }).then((x) => {
+                            this.success = x.data["message"];
+                            this.error = x.data["error"];
+                        }).then(this.loadEntries)
+                        .then(this.close);
+                } catch (e) {
+                    this.error = "Something went wrong";
+                }
+            }
+        }
+    });
+
+    app.loadEntries();
+</script>
+
+<%- include('../partials/bottom') %>

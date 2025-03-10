@@ -1,0 +1,62 @@
+h2 {
+    text-align: center;
+}
+
+nav {
+    margin-bottom: 1em;
+}
+
+.card {
+    background-color: darkslategray;
+    color: white;
+    min-width: 300px;
+    padding: 1em;
+    margin: 1em;
+    float: left;
+}
+.card table td {
+    border: 1px solid white;
+}
+
+.card table thead, .card table th {
+    font-weight: bold;
+}
+
+.card.b1 {
+    background-color: #ED2939;
+}
+
+.card.b2 {
+    background-color: rgb(94, 94, 255);
+}
+
+.card.b3 {
+    background-color: #2d9e2d;
+}
+
+.card.b4 {
+    background-color: #b89f12;
+}
+
+.bg {
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.card a {
+    color: lightblue;
+}
+
+.card a:hover {
+    text-decoration: none;
+}
+
+.clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
+  }

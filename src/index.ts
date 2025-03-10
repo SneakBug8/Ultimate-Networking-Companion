@@ -9,10 +9,11 @@ import { NetworkingService } from "./networking/Networking";
 import { Config } from "./config";
 import { InitBackup, ProcessBackup } from "./backup/BackupService";
 import { Sleep } from "./util/Sleep";
-// import { NetworkingWeb as NetworkingWebService } from "./networking/NetworkingWebService";
+import { NetworkingWeb as NetworkingWebService } from "./networking/NetworkingWebService";
 import { Scheduler } from "./util/Scheduler";
 import { ErrorLogger } from "./util/ErrorLogger";
 import { SyncEvent } from "./util/SyncEvent";
+import { WebAuthService } from "./users/WebAuthService";
 
 let waitingCallback: ((message: MessageWrapper) => any) | null = null;
 
@@ -60,7 +61,8 @@ class App
         InitBackup();
 
         // Web modules
-        // NetworkingWebService.Init();
+        WebAuthService.Init();
+        NetworkingWebService.Init();
 
         this.bot.on("text", async (msg) =>
         {

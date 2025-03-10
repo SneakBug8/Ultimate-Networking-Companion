@@ -162,7 +162,7 @@ class NetworkingClass
         if (currcomm.Done) {
           continue;
         }
-        updatedcommunication = await this.SetCommunicationDone(userId, currcomm);
+        updatedcommunication = await this.SetCommunicationDone(currcomm);
 
         break;
       }
@@ -174,12 +174,12 @@ class NetworkingClass
     return {contact, updatedcommunication};
   }
 
-  public async SetCommunicationDone(userId: number, comm: NetworkingCommunication)
+  public async SetCommunicationDone(comm: NetworkingCommunication)
   {
     comm.Done = 1;
     comm.DONE_DT = MIS_DT.GetExact();
     await NetworkingCommunication.Update(comm);
-    await NetworkingHistory.writeChange(userId, comm.Contact, 2, comm?.Id || 0);
+    await NetworkingHistory.writeChange(comm.userId, comm.Contact, 2, comm?.Id || 0);
     return comm;
   }
 
